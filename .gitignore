@@ -1,0 +1,15 @@
+# Зависимости
+node_modules/
+
+# Сборка
+dist/
+build/
+
+# Файлы IDE
+.vscode/
+.idea/
+
+# Логи и окружение
+.env
+*.log
+package-lock.json

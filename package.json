@@ -1,0 +1,13 @@
+{
+  "name": "obsidian-image-crop",
+  "version": "1.0.0",
+  "description": "Crop images in Obsidian",
+  "scripts": {
+    "dev": "esbuild main.ts --bundle --outfile=main.js --watch --external:obsidian",
+    "build": "esbuild main.ts --bundle --outfile=main.js --minify --external:obsidian --format=cjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.19.0",
+    "obsidian": "latest"
+  }
+}
