@@ -28,7 +28,7 @@ export class CropModal extends Modal {
     contentEl.empty();
     contentEl.createEl("h2", { text: "Select image to crop" });
 
-    // Поисковая строка
+    // Search input for filtering images
     const searchInput = contentEl.createEl("input", {
       type: "text",
       placeholder: "Search images...",
@@ -37,18 +37,18 @@ export class CropModal extends Modal {
     searchInput.style.width = "100%";
     searchInput.style.marginBottom = "10px";
 
-    // Контейнер для основного контента
+    // Main container for images and preview
     const container = contentEl.createDiv({ cls: "image-crop-container" }) as HTMLDivElement;
     container.style.display = "flex";
     container.style.gap = "20px";
 
-    // Список изображений
+    // List of images
     const listContainer = container.createDiv({ cls: "image-crop-list" }) as HTMLDivElement;
     listContainer.style.flex = "1";
     listContainer.style.maxHeight = "400px";
     listContainer.style.overflowY = "auto";
 
-    // Область предпросмотра
+    // Preview for selected image
     const previewContainer = container.createDiv({ cls: "image-crop-preview" }) as HTMLDivElement;
     previewContainer.style.flex = "1";
     previewContainer.style.display = "flex";
@@ -62,13 +62,13 @@ export class CropModal extends Modal {
     imgPreview.style.maxWidth = "100%";
     imgPreview.style.maxHeight = "300px";
 
-    // Получение всех изображений хранилища
+    // Get all image files in the vault
     const imageFiles = this.app.vault.getFiles().filter(f => {
       const ext = f.extension ? f.extension.toLowerCase() : "";
       return ["png", "jpg", "jpeg", "webp", "gif", "bmp", "tiff", "svg"].includes(ext);
     });
 
-    // Функция рендеринга списка
+    // Render the list of images
     const renderList = (filter: string = "") => {
       listContainer.empty();
       const filtered = imageFiles.filter(file => 
@@ -93,14 +93,14 @@ export class CropModal extends Modal {
         item.style.borderBottom = "1px solid var(--background-modifier-border)";
 
         item.onclick = async () => {
-          // Сброс предыдущего выбора
+          // Clear previous selection
           const items = listContainer.querySelectorAll(".image-crop-item") as NodeListOf<HTMLDivElement>;
           items.forEach(el => {
             el.style.backgroundColor = "";
           });
           item.style.backgroundColor = "var(--background-modifier-hover)";
 
-          // Загрузка превью
+          // Load and display the selected image
           try {
             const arrayBuffer = await this.vault.readBinary(file);
             const blob = new Blob([arrayBuffer]);
@@ -115,16 +115,16 @@ export class CropModal extends Modal {
       });
     };
 
-    // Инициализация списка
+    // Initial render of the image list
     renderList();
 
-    // Обработка поиска
+    // Search functionality
     searchInput.addEventListener("input", (e) => {
       const value = (e.target as HTMLInputElement).value;
       renderList(value);
     });
 
-    // Кнопки управления
+    // Buttons for next and cancel
     const buttonContainer = contentEl.createDiv({ cls: "image-crop-buttons" }) as HTMLDivElement;
     buttonContainer.style.marginTop = "15px";
     buttonContainer.style.display = "flex";
@@ -137,12 +137,12 @@ export class CropModal extends Modal {
       text: "Cancel"
     }) as HTMLButtonElement;
 
-    // Обновление состояния кнопки Next
+    // Next button should be disabled until an image is selected
     imgPreview.addEventListener("load", () => {
       nextBtn.disabled = false;
     });
 
-    // Обработчики кнопок
+    // Button click handlers
     nextBtn.onclick = () => {
       if (this.selectedFile) {
         this.openCropInterface(this.selectedFile, this.selectedFile.name);
@@ -164,7 +164,7 @@ export class CropModal extends Modal {
       this.contentEl.empty();
       this.contentEl.createEl("h2", { text: rawLink });
 
-      // Контейнер для холста
+      // Canvas container for cropping
       const canvasContainer = this.contentEl.createDiv({
           cls: "image-crop-canvas-container"
       }) as HTMLDivElement;
@@ -178,18 +178,18 @@ export class CropModal extends Modal {
       const canvas = canvasContainer.createEl("canvas") as HTMLCanvasElement;
       const ctx = canvas.getContext("2d")!;
       
-      // Сохраняем оригинальные размеры
+      // Save original dimensions
       const origWidth = img.width;
       const origHeight = img.height;
       
-      // Функция для установки размера холста
+      // Canvas size based on zoom level
       const setCanvasSize = () => {
           canvas.width = origWidth * this.zoomLevel;
           canvas.height = origHeight * this.zoomLevel;
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       };
       
-      // Первоначальная отрисовка
+      // Initial canvas setup
       setCanvasSize();
 
       const info = this.contentEl.createEl("div");
@@ -197,7 +197,7 @@ export class CropModal extends Modal {
       let drawing = false;
       let startX = 0, startY = 0;
 
-      // Функция для преобразования координат мыши в координаты оригинала
+      // Function to convert canvas coordinates to original image coordinates
       const toOriginalCoords = (x: number, y: number) => {
           return {
               x: (x / canvas.width) * origWidth,
@@ -229,10 +229,10 @@ export class CropModal extends Modal {
           crop.width = Math.abs(origCoords.x - startX);
           crop.height = Math.abs(origCoords.y - startY);
           
-          // Перерисовываем изображение
+          // Clear the canvas and redraw the image
           setCanvasSize();
           
-          // Рисуем прямоугольник выделения
+          // Draw the selection rectangle
           ctx.strokeStyle = "red";
           ctx.lineWidth = 2;
           ctx.strokeRect(
@@ -242,7 +242,7 @@ export class CropModal extends Modal {
               (crop.height / origHeight) * canvas.height
           );
           
-          // Округляем значения для отображения
+          // Round the coordinates and dimensions for display
           const roundedX = Math.round(crop.x);
           const roundedY = Math.round(crop.y);
           const roundedWidth = Math.round(crop.width);
@@ -263,7 +263,7 @@ export class CropModal extends Modal {
           drawing = false; 
       };
 
-      // Контролы масштабирования
+      // Zoom controls
       const zoomContainer = this.contentEl.createDiv({
           cls: "image-crop-zoom-controls"
       }) as HTMLDivElement;
@@ -288,14 +288,14 @@ export class CropModal extends Modal {
       zoomValue.style.minWidth = "50px";
       zoomValue.style.textAlign = "right";
 
-      // Обработчики масштабирования
+      // Zoom update function
       const updateZoom = (newZoom: number) => {
           this.zoomLevel = newZoom;
           zoomSlider.value = newZoom.toString();
           zoomValue.textContent = `${newZoom.toFixed(1)}x`;
           setCanvasSize();
           
-          // Перерисовываем выделение, если оно есть
+          // Redraw the selection rectangle if it exists
           if (crop.width > 0 && crop.height > 0) {
               ctx.strokeStyle = "red";
               ctx.lineWidth = 2;
@@ -313,7 +313,7 @@ export class CropModal extends Modal {
           updateZoom(value);
       });
 
-      // Scale input для итогового масштаба
+      // Scale input for output image
       const scaleContainer = this.contentEl.createDiv({ 
           cls: "image-crop-scale" 
       }) as HTMLDivElement;
@@ -330,7 +330,7 @@ export class CropModal extends Modal {
       this.scaleInput.step = "0.1";
       this.scaleInput.style.width = "80px";
 
-      // Кнопки Accept/Cancel
+      // Accept and Cancel buttons
       const buttonContainer = this.contentEl.createDiv({ 
           cls: "image-crop-buttons" 
       }) as HTMLDivElement;
@@ -347,7 +347,7 @@ export class CropModal extends Modal {
       }) as HTMLButtonElement;
 
       acceptBtn.onclick = () => {
-          // Округляем координаты и размеры до целых чисел
+          // Round the coordinates and dimensions for the output link
           const roundedX = Math.round(crop.x);
           const roundedY = Math.round(crop.y);
           const roundedWidth = Math.round(crop.width);
@@ -356,16 +356,16 @@ export class CropModal extends Modal {
           const scale = parseFloat(this.scaleInput.value) || 1;
           const scaleParam = scale !== 1 ? `_Scale${scale}` : "";
           
-          // Используем округленные значения
+          // Create the alias for the cropped image with rounded dimensions
           const alias = `${roundedHeight}x${roundedWidth}_Shift${roundedY}x${roundedX}${scaleParam}`;
           const newLink = `![[${imgFile.name}|${alias}]]`;
 
-          // Вставка в конец документа
+          // Insert the new link at the end of the current markdown file
           const editor = this.view.editor;
           const end = editor.lastLine();
           editor.replaceRange("\n" + newLink + "\n", { line: end, ch: 0 });
 
-          // Вызов функции рендеринга
+          // Call render function to update the view
           if ((this.plugin as any).processImageCrop) {
               (this.plugin as any).processImageCrop();
           }
