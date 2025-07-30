@@ -4,6 +4,7 @@ import { Plugin } from "obsidian";
  * Registers a renderer to process cropped images in Live Preview and Preview modes.
  */
 export function registerImageCropRenderer(plugin: Plugin) {
+  // Updated pattern to match new crop format: height x width_ShiftYxX[_ScaleZ]
   const CROP_PATTERN = /^(\d+)x(\d+)_Shift(\d+)x(\d+)(?:_Scale([0-9.]+))?$/;
 
   async function processEmbed(embed: HTMLElement) {
@@ -13,30 +14,38 @@ export function registerImageCropRenderer(plugin: Plugin) {
     const match = alt.match(CROP_PATTERN);
     if (!match) return;
 
-    const [, h, w, dy, dx, scaleStr] = match;
-    const height = parseInt(h, 10);
-    const width = parseInt(w, 10);
-    const offsetY = parseInt(dy, 10);
-    const offsetX = parseInt(dx, 10);
+    const [, heightStr, widthStr, offsetYStr, offsetXStr, scaleStr] = match;
+    const height = parseInt(heightStr, 10);
+    const width = parseInt(widthStr, 10);
+    const offsetY = parseInt(offsetYStr, 10);
+    const offsetX = parseInt(offsetXStr, 10);
     const scale = scaleStr ? parseFloat(scaleStr) : 1;
 
     const img = embed.querySelector<HTMLImageElement>('img');
     if (!img) return;
     const url = img.src;
-    await img.decode().catch(() => {});
+    
+    try {
+      await img.decode();
+    } catch (e) {
+      console.error("Image decoding failed", e);
+      return;
+    }
+    
     const originalWidth = img.naturalWidth;
     const originalHeight = img.naturalHeight;
 
-    // Container dimensions scaled by 'scale' factor
+    // Apply container styles with scaling
     Object.assign(embed.style, {
       width: `${width * scale}px`,
       height: `${height * scale}px`,
       overflow: 'hidden',
       position: 'relative',
-      display: 'inline-block'
+      display: 'inline-block',
+      maxWidth: '100%'
     });
 
-    // Create clone with cropping and scaling
+    // Create cropped image clone
     const clone = document.createElement('img');
     clone.src = url;
     Object.assign(clone.style, {
@@ -53,7 +62,7 @@ export function registerImageCropRenderer(plugin: Plugin) {
     embed.appendChild(clone);
     embed.setAttribute('data-cropper-processed', 'true');
 
-    // Hover preview of full image
+    // Add hover preview functionality
     embed.addEventListener('mouseenter', () => {
       const preview = document.createElement('div');
       Object.assign(preview.style, {
@@ -61,51 +70,71 @@ export function registerImageCropRenderer(plugin: Plugin) {
         top: '10px',
         right: '10px',
         zIndex: '9999',
-        border: '1px solid #666',
-        background: '#fff',
-        padding: '5px'
+        border: '1px solid var(--background-modifier-border)',
+        background: 'var(--background-primary)',
+        padding: '5px',
+        borderRadius: '4px',
+        boxShadow: '0 2px 10px rgba(0,0,0,0.2)'
       });
+      
       const full = document.createElement('img');
       full.src = url;
-      full.style.maxWidth = '400px';
+      full.style.maxWidth = 'min(80vw, 400px)';
+      full.style.maxHeight = '60vh';
+      full.style.display = 'block';
+      
       preview.appendChild(full);
       document.body.appendChild(preview);
 
-      embed.addEventListener('mouseleave', () => {
+      const removePreview = () => {
         preview.remove();
-      }, { once: true });
+        embed.removeEventListener('mouseleave', removePreview);
+      };
+      
+      embed.addEventListener('mouseleave', removePreview);
     });
   }
 
   function runProcessing() {
     document.querySelectorAll<HTMLElement>('.internal-embed.media-embed.image-embed.is-loaded').forEach(embed => {
-      processEmbed(embed);
+      processEmbed(embed).catch(e => console.error('Image processing failed', e));
     });
   }
 
-  // Expose for external calls
+  // Expose processing function for modal
   (plugin as any).processImageCrop = runProcessing;
 
-  // Register events
+  // Register workspace events
   plugin.registerEvent(
     plugin.app.workspace.on('layout-change', runProcessing)
   );
+  
   plugin.registerEvent(
     plugin.app.workspace.on('active-leaf-change', runProcessing)
   );
 
-  // MutationObserver for dynamic changes
+  // Add mutation observer for dynamic content
   const observer = new MutationObserver(mutations => {
-    for (const m of mutations) {
-      for (const node of Array.from(m.addedNodes)) {
+    for (const mutation of mutations) {
+      for (const node of mutation.addedNodes) {
         if (node instanceof HTMLElement) {
+          // Process single embedded image
           if (node.matches('.internal-embed.media-embed.image-embed.is-loaded')) {
-            processEmbed(node);
+            processEmbed(node).catch(e => console.error('Mutation processing failed', e));
           }
-          node.querySelectorAll<HTMLElement>('.internal-embed.media-embed.image-embed.is-loaded').forEach(embed => processEmbed(embed));
+          
+          // Process nested images
+          const embeds = node.querySelectorAll<HTMLElement>('.internal-embed.media-embed.image-embed.is-loaded');
+          for (const embed of embeds) {
+            processEmbed(embed).catch(e => console.error('Nested processing failed', e));
+          }
         }
       }
     }
   });
-  observer.observe(document.body, { childList: true, subtree: true });
+  
+  observer.observe(document.body, { 
+    childList: true, 
+    subtree: true 
+  });
 }
