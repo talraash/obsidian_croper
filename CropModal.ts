@@ -152,182 +152,227 @@ export class CropModal extends Modal {
     cancelBtn.onclick = () => this.close();
   }
 
-  private async openCropInterface(imgFile: TFile, rawLink: string) {
-    const arrayBuffer = await this.vault.readBinary(imgFile);
-    const blob = new Blob([arrayBuffer]);
-    const url = URL.createObjectURL(blob);
+    private async openCropInterface(imgFile: TFile, rawLink: string) {
+      const arrayBuffer = await this.vault.readBinary(imgFile);
+      const blob = new Blob([arrayBuffer]);
+      const url = URL.createObjectURL(blob);
 
-    const img = new Image();
-    img.src = url;
-    await img.decode();
+      const img = new Image();
+      img.src = url;
+      await img.decode();
 
-    this.contentEl.empty();
-    this.contentEl.createEl("h2", { text: rawLink });
+      this.contentEl.empty();
+      this.contentEl.createEl("h2", { text: rawLink });
 
-    // Контейнер для холста
-    const canvasContainer = this.contentEl.createDiv({
-      cls: "image-crop-canvas-container"
-    }) as HTMLDivElement;
-    canvasContainer.style.overflow = "auto";
-    canvasContainer.style.maxHeight = "60vh";
-    canvasContainer.style.border = "1px solid var(--background-modifier-border)";
-    canvasContainer.style.borderRadius = "4px";
-    canvasContainer.style.padding = "10px";
-    canvasContainer.style.backgroundColor = "var(--background-primary)";
+      // Контейнер для холста
+      const canvasContainer = this.contentEl.createDiv({
+          cls: "image-crop-canvas-container"
+      }) as HTMLDivElement;
+      canvasContainer.style.overflow = "auto";
+      canvasContainer.style.maxHeight = "60vh";
+      canvasContainer.style.border = "1px solid var(--background-modifier-border)";
+      canvasContainer.style.borderRadius = "4px";
+      canvasContainer.style.padding = "10px";
+      canvasContainer.style.backgroundColor = "var(--background-primary)";
 
-    const canvas = canvasContainer.createEl("canvas") as HTMLCanvasElement;
-    const ctx = canvas.getContext("2d")!;
-    
-    // Установим начальный размер холста
-    canvas.width = img.width;
-    canvas.height = img.height;
-    ctx.drawImage(img, 0, 0);
-
-    const info = this.contentEl.createEl("div");
-    let crop: CropData = { x: 0, y: 0, width: 100, height: 100, scale: 1 };
-    let drawing = false;
-    let startX = 0, startY = 0;
-
-    canvas.onmousedown = (e: MouseEvent) => { 
-      startX = e.offsetX;
-      startY = e.offsetY;
-      drawing = true;
-    };
-    
-    canvas.onmousemove = (e: MouseEvent) => {
-      if (!drawing) return;
+      const canvas = canvasContainer.createEl("canvas") as HTMLCanvasElement;
+      const ctx = canvas.getContext("2d")!;
       
-      const currentX = e.offsetX;
-      const currentY = e.offsetY;
+      // Сохраняем оригинальные размеры
+      const origWidth = img.width;
+      const origHeight = img.height;
       
-      crop.x = Math.min(startX, currentX);
-      crop.y = Math.min(startY, currentY);
-      crop.width = Math.abs(currentX - startX);
-      crop.height = Math.abs(currentY - startY);
+      // Функция для установки размера холста
+      const setCanvasSize = () => {
+          canvas.width = origWidth * this.zoomLevel;
+          canvas.height = origHeight * this.zoomLevel;
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      };
       
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0);
+      // Первоначальная отрисовка
+      setCanvasSize();
+
+      const info = this.contentEl.createEl("div");
+      let crop: CropData = { x: 0, y: 0, width: 100, height: 100, scale: 1 };
+      let drawing = false;
+      let startX = 0, startY = 0;
+
+      // Функция для преобразования координат мыши в координаты оригинала
+      const toOriginalCoords = (x: number, y: number) => {
+          return {
+              x: (x / canvas.width) * origWidth,
+              y: (y / canvas.height) * origHeight
+          };
+      };
+
+      canvas.onmousedown = (e: MouseEvent) => { 
+          const rect = canvas.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const y = e.clientY - rect.top;
+          const origCoords = toOriginalCoords(x, y);
+          
+          startX = origCoords.x;
+          startY = origCoords.y;
+          drawing = true;
+      };
       
-      // Рисуем прямоугольник выделения
-      ctx.strokeStyle = "red";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(crop.x, crop.y, crop.width, crop.height);
+      canvas.onmousemove = (e: MouseEvent) => {
+          if (!drawing) return;
+          
+          const rect = canvas.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const y = e.clientY - rect.top;
+          const origCoords = toOriginalCoords(x, y);
+          
+          crop.x = Math.min(startX, origCoords.x);
+          crop.y = Math.min(startY, origCoords.y);
+          crop.width = Math.abs(origCoords.x - startX);
+          crop.height = Math.abs(origCoords.y - startY);
+          
+          // Перерисовываем изображение
+          setCanvasSize();
+          
+          // Рисуем прямоугольник выделения
+          ctx.strokeStyle = "red";
+          ctx.lineWidth = 2;
+          ctx.strokeRect(
+              (crop.x / origWidth) * canvas.width, 
+              (crop.y / origHeight) * canvas.height, 
+              (crop.width / origWidth) * canvas.width, 
+              (crop.height / origHeight) * canvas.height
+          );
+          
+          // Округляем значения для отображения
+          const roundedX = Math.round(crop.x);
+          const roundedY = Math.round(crop.y);
+          const roundedWidth = Math.round(crop.width);
+          const roundedHeight = Math.round(crop.height);
+          
+          info.setText(
+              `x:${roundedX} y:${roundedY} ` +
+              `w:${roundedWidth} h:${roundedHeight} ` +
+              `zoom:${this.zoomLevel.toFixed(1)}x`
+          );
+      };
       
-      info.setText(
-        `x:${Math.round(crop.x)} y:${Math.round(crop.y)} ` +
-        `w:${Math.round(crop.width)} h:${Math.round(crop.height)}`
-      );
-    };
-    
-    canvas.onmouseup = () => { 
-      drawing = false; 
-    };
-    
-    canvas.onmouseleave = () => { 
-      drawing = false; 
-    };
-
-    // Контролы масштабирования (упрощенная версия)
-    const zoomContainer = this.contentEl.createDiv({
-      cls: "image-crop-zoom-controls"
-    }) as HTMLDivElement;
-    zoomContainer.style.margin = "15px 0";
-    zoomContainer.style.display = "flex";
-    zoomContainer.style.alignItems = "center";
-    zoomContainer.style.gap = "10px";
-    
-    zoomContainer.createEl("label", { text: "Zoom:" });
-    
-    const zoomSlider = zoomContainer.createEl("input") as HTMLInputElement;
-    zoomSlider.type = "range";
-    zoomSlider.min = "0.1";
-    zoomSlider.max = "2.0";
-    zoomSlider.step = "0.1";
-    zoomSlider.value = "1.0";
-    zoomSlider.style.flex = "1";
-    
-    const zoomValue = zoomContainer.createEl("span", { 
-      text: "1.0x" 
-    }) as HTMLSpanElement;
-    zoomValue.style.minWidth = "50px";
-    zoomValue.style.textAlign = "right";
-
-    // Обработчики масштабирования
-    zoomSlider.addEventListener("input", (e) => {
-      const value = parseFloat((e.target as HTMLInputElement).value);
-      this.zoomLevel = value;
-      zoomValue.textContent = `${value.toFixed(1)}x`;
+      canvas.onmouseup = () => { 
+          drawing = false; 
+      };
       
-      // Перерисовываем изображение с новым масштабом
-      canvas.width = img.width * value;
-      canvas.height = img.height * value;
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.onmouseleave = () => { 
+          drawing = false; 
+      };
+
+      // Контролы масштабирования
+      const zoomContainer = this.contentEl.createDiv({
+          cls: "image-crop-zoom-controls"
+      }) as HTMLDivElement;
+      zoomContainer.style.margin = "15px 0";
+      zoomContainer.style.display = "flex";
+      zoomContainer.style.alignItems = "center";
+      zoomContainer.style.gap = "10px";
       
-      // Перерисовываем выделение
-      if (crop.width > 0 && crop.height > 0) {
-        ctx.strokeStyle = "red";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(
-          crop.x * value, 
-          crop.y * value, 
-          crop.width * value, 
-          crop.height * value
-        );
-      }
-    });
+      zoomContainer.createEl("label", { text: "Zoom:" });
+      
+      const zoomSlider = zoomContainer.createEl("input") as HTMLInputElement;
+      zoomSlider.type = "range";
+      zoomSlider.min = "0.1";
+      zoomSlider.max = "2.0";
+      zoomSlider.step = "0.1";
+      zoomSlider.value = "1.0";
+      zoomSlider.style.flex = "1";
+      
+      const zoomValue = zoomContainer.createEl("span", { 
+          text: "1.0x" 
+      }) as HTMLSpanElement;
+      zoomValue.style.minWidth = "50px";
+      zoomValue.style.textAlign = "right";
 
-    // Scale input для итогового масштаба
-    const scaleContainer = this.contentEl.createDiv({ 
-      cls: "image-crop-scale" 
-    }) as HTMLDivElement;
-    scaleContainer.style.margin = "15px 0";
-    scaleContainer.style.display = "flex";
-    scaleContainer.style.alignItems = "center";
-    scaleContainer.style.gap = "10px";
-    
-    scaleContainer.createEl("label", { text: "Output Scale:" });
-    this.scaleInput = scaleContainer.createEl("input") as HTMLInputElement;
-    this.scaleInput.type = "number";
-    this.scaleInput.value = "1";
-    this.scaleInput.min = "0.1";
-    this.scaleInput.step = "0.1";
-    this.scaleInput.style.width = "80px";
+      // Обработчики масштабирования
+      const updateZoom = (newZoom: number) => {
+          this.zoomLevel = newZoom;
+          zoomSlider.value = newZoom.toString();
+          zoomValue.textContent = `${newZoom.toFixed(1)}x`;
+          setCanvasSize();
+          
+          // Перерисовываем выделение, если оно есть
+          if (crop.width > 0 && crop.height > 0) {
+              ctx.strokeStyle = "red";
+              ctx.lineWidth = 2;
+              ctx.strokeRect(
+                  (crop.x / origWidth) * canvas.width, 
+                  (crop.y / origHeight) * canvas.height, 
+                  (crop.width / origWidth) * canvas.width, 
+                  (crop.height / origHeight) * canvas.height
+              );
+          }
+      };
+      
+      zoomSlider.addEventListener("input", (e) => {
+          const value = parseFloat((e.target as HTMLInputElement).value);
+          updateZoom(value);
+      });
 
-    // Кнопки Accept/Cancel
-    const buttonContainer = this.contentEl.createDiv({ 
-      cls: "image-crop-buttons" 
-    }) as HTMLDivElement;
-    buttonContainer.style.display = "flex";
-    buttonContainer.style.gap = "10px";
-    buttonContainer.style.justifyContent = "flex-end";
+      // Scale input для итогового масштаба
+      const scaleContainer = this.contentEl.createDiv({ 
+          cls: "image-crop-scale" 
+      }) as HTMLDivElement;
+      scaleContainer.style.margin = "15px 0";
+      scaleContainer.style.display = "flex";
+      scaleContainer.style.alignItems = "center";
+      scaleContainer.style.gap = "10px";
+      
+      scaleContainer.createEl("label", { text: "Output Scale:" });
+      this.scaleInput = scaleContainer.createEl("input") as HTMLInputElement;
+      this.scaleInput.type = "number";
+      this.scaleInput.value = "1";
+      this.scaleInput.min = "0.1";
+      this.scaleInput.step = "0.1";
+      this.scaleInput.style.width = "80px";
 
-    const acceptBtn = buttonContainer.createEl("button", { 
-      text: "Accept" 
-    }) as HTMLButtonElement;
-    
-    const cancelBtn = buttonContainer.createEl("button", { 
-      text: "Cancel" 
-    }) as HTMLButtonElement;
+      // Кнопки Accept/Cancel
+      const buttonContainer = this.contentEl.createDiv({ 
+          cls: "image-crop-buttons" 
+      }) as HTMLDivElement;
+      buttonContainer.style.display = "flex";
+      buttonContainer.style.gap = "10px";
+      buttonContainer.style.justifyContent = "flex-end";
 
-    acceptBtn.onclick = () => {
-      const scale = parseFloat(this.scaleInput.value) || 1;
-      const scaleParam = scale !== 1 ? `_Scale${scale}` : "";
-      const alias = `${crop.height}x${crop.width}_Shift${crop.y}x${crop.x}${scaleParam}`;
-      const newLink = `![[${imgFile.name}|${alias}]]`;
+      const acceptBtn = buttonContainer.createEl("button", { 
+          text: "Accept" 
+      }) as HTMLButtonElement;
+      
+      const cancelBtn = buttonContainer.createEl("button", { 
+          text: "Cancel" 
+      }) as HTMLButtonElement;
 
-      // Вставка в конец документа
-      const editor = this.view.editor;
-      const end = editor.lastLine();
-      editor.replaceRange("\n" + newLink + "\n", { line: end, ch: 0 });
+      acceptBtn.onclick = () => {
+          // Округляем координаты и размеры до целых чисел
+          const roundedX = Math.round(crop.x);
+          const roundedY = Math.round(crop.y);
+          const roundedWidth = Math.round(crop.width);
+          const roundedHeight = Math.round(crop.height);
+          
+          const scale = parseFloat(this.scaleInput.value) || 1;
+          const scaleParam = scale !== 1 ? `_Scale${scale}` : "";
+          
+          // Используем округленные значения
+          const alias = `${roundedHeight}x${roundedWidth}_Shift${roundedY}x${roundedX}${scaleParam}`;
+          const newLink = `![[${imgFile.name}|${alias}]]`;
 
-      // Вызов функции рендеринга
-      if ((this.plugin as any).processImageCrop) {
-        (this.plugin as any).processImageCrop();
-      }
+          // Вставка в конец документа
+          const editor = this.view.editor;
+          const end = editor.lastLine();
+          editor.replaceRange("\n" + newLink + "\n", { line: end, ch: 0 });
 
-      this.close();
-    };
+          // Вызов функции рендеринга
+          if ((this.plugin as any).processImageCrop) {
+              (this.plugin as any).processImageCrop();
+          }
 
-    cancelBtn.onclick = () => this.close();
+          this.close();
+      };
+
+      cancelBtn.onclick = () => this.close();
   }
 }
