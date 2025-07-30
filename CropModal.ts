@@ -11,6 +11,7 @@ interface CropData {
 export class CropModal extends Modal {
   private scaleInput!: HTMLInputElement;
   private selectedFile: TFile | null = null;
+  private zoomLevel: number = 1.0;
 
   constructor(
     private plugin: Plugin,
@@ -63,7 +64,7 @@ export class CropModal extends Modal {
 
     // Получение всех изображений хранилища
     const imageFiles = this.app.vault.getFiles().filter(f => {
-      const ext = f.extension.toLowerCase();
+      const ext = f.extension ? f.extension.toLowerCase() : "";
       return ["png", "jpg", "jpeg", "webp", "gif", "bmp", "tiff", "svg"].includes(ext);
     });
 
@@ -71,8 +72,7 @@ export class CropModal extends Modal {
     const renderList = (filter: string = "") => {
       listContainer.empty();
       const filtered = imageFiles.filter(file => 
-        file.name.toLowerCase().includes(filter.toLowerCase()) ||
-        file.path.toLowerCase().includes(filter.toLowerCase())
+        file.name.toLowerCase().includes(filter.toLowerCase())
       );
 
       if (filtered.length === 0) {
@@ -94,7 +94,8 @@ export class CropModal extends Modal {
 
         item.onclick = async () => {
           // Сброс предыдущего выбора
-          document.querySelectorAll<HTMLDivElement>(".image-crop-item").forEach(el => {
+          const items = listContainer.querySelectorAll(".image-crop-item") as NodeListOf<HTMLDivElement>;
+          items.forEach(el => {
             el.style.backgroundColor = "";
           });
           item.style.backgroundColor = "var(--background-modifier-hover)";
@@ -133,8 +134,7 @@ export class CropModal extends Modal {
     nextBtn.disabled = true;
     
     const cancelBtn = buttonContainer.createEl("button", { 
-      text: "Cancel",
-      cls: "image-crop-cancel"
+      text: "Cancel"
     }) as HTMLButtonElement;
 
     // Обновление состояния кнопки Next
@@ -164,8 +164,21 @@ export class CropModal extends Modal {
     this.contentEl.empty();
     this.contentEl.createEl("h2", { text: rawLink });
 
-    const canvas = this.contentEl.createEl("canvas") as HTMLCanvasElement;
+    // Контейнер для холста
+    const canvasContainer = this.contentEl.createDiv({
+      cls: "image-crop-canvas-container"
+    }) as HTMLDivElement;
+    canvasContainer.style.overflow = "auto";
+    canvasContainer.style.maxHeight = "60vh";
+    canvasContainer.style.border = "1px solid var(--background-modifier-border)";
+    canvasContainer.style.borderRadius = "4px";
+    canvasContainer.style.padding = "10px";
+    canvasContainer.style.backgroundColor = "var(--background-primary)";
+
+    const canvas = canvasContainer.createEl("canvas") as HTMLCanvasElement;
     const ctx = canvas.getContext("2d")!;
+    
+    // Установим начальный размер холста
     canvas.width = img.width;
     canvas.height = img.height;
     ctx.drawImage(img, 0, 0);
@@ -176,49 +189,125 @@ export class CropModal extends Modal {
     let startX = 0, startY = 0;
 
     canvas.onmousedown = (e: MouseEvent) => { 
-      startX = e.offsetX; 
-      startY = e.offsetY; 
-      drawing = true; 
+      startX = e.offsetX;
+      startY = e.offsetY;
+      drawing = true;
     };
     
     canvas.onmousemove = (e: MouseEvent) => {
       if (!drawing) return;
-      const x = e.offsetX, y = e.offsetY;
-      crop.x = Math.min(startX, x);
-      crop.y = Math.min(startY, y);
-      crop.width = Math.abs(x - startX);
-      crop.height = Math.abs(y - startY);
+      
+      const currentX = e.offsetX;
+      const currentY = e.offsetY;
+      
+      crop.x = Math.min(startX, currentX);
+      crop.y = Math.min(startY, currentY);
+      crop.width = Math.abs(currentX - startX);
+      crop.height = Math.abs(currentY - startY);
+      
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0);
+      
+      // Рисуем прямоугольник выделения
       ctx.strokeStyle = "red";
       ctx.lineWidth = 2;
       ctx.strokeRect(crop.x, crop.y, crop.width, crop.height);
-      info.setText(`x:${crop.x} y:${crop.y} w:${crop.width} h:${crop.height}`);
+      
+      info.setText(
+        `x:${Math.round(crop.x)} y:${Math.round(crop.y)} ` +
+        `w:${Math.round(crop.width)} h:${Math.round(crop.height)}`
+      );
     };
     
-    canvas.onmouseup = () => { drawing = false; };
+    canvas.onmouseup = () => { 
+      drawing = false; 
+    };
+    
+    canvas.onmouseleave = () => { 
+      drawing = false; 
+    };
 
-    // Scale input
-    const scaleContainer = this.contentEl.createDiv({ cls: "image-crop-scale" }) as HTMLDivElement;
+    // Контролы масштабирования (упрощенная версия)
+    const zoomContainer = this.contentEl.createDiv({
+      cls: "image-crop-zoom-controls"
+    }) as HTMLDivElement;
+    zoomContainer.style.margin = "15px 0";
+    zoomContainer.style.display = "flex";
+    zoomContainer.style.alignItems = "center";
+    zoomContainer.style.gap = "10px";
+    
+    zoomContainer.createEl("label", { text: "Zoom:" });
+    
+    const zoomSlider = zoomContainer.createEl("input") as HTMLInputElement;
+    zoomSlider.type = "range";
+    zoomSlider.min = "0.1";
+    zoomSlider.max = "2.0";
+    zoomSlider.step = "0.1";
+    zoomSlider.value = "1.0";
+    zoomSlider.style.flex = "1";
+    
+    const zoomValue = zoomContainer.createEl("span", { 
+      text: "1.0x" 
+    }) as HTMLSpanElement;
+    zoomValue.style.minWidth = "50px";
+    zoomValue.style.textAlign = "right";
+
+    // Обработчики масштабирования
+    zoomSlider.addEventListener("input", (e) => {
+      const value = parseFloat((e.target as HTMLInputElement).value);
+      this.zoomLevel = value;
+      zoomValue.textContent = `${value.toFixed(1)}x`;
+      
+      // Перерисовываем изображение с новым масштабом
+      canvas.width = img.width * value;
+      canvas.height = img.height * value;
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      
+      // Перерисовываем выделение
+      if (crop.width > 0 && crop.height > 0) {
+        ctx.strokeStyle = "red";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(
+          crop.x * value, 
+          crop.y * value, 
+          crop.width * value, 
+          crop.height * value
+        );
+      }
+    });
+
+    // Scale input для итогового масштаба
+    const scaleContainer = this.contentEl.createDiv({ 
+      cls: "image-crop-scale" 
+    }) as HTMLDivElement;
     scaleContainer.style.margin = "15px 0";
     scaleContainer.style.display = "flex";
     scaleContainer.style.alignItems = "center";
+    scaleContainer.style.gap = "10px";
     
-    scaleContainer.createEl("label", { text: "Scale:" });
+    scaleContainer.createEl("label", { text: "Output Scale:" });
     this.scaleInput = scaleContainer.createEl("input") as HTMLInputElement;
     this.scaleInput.type = "number";
     this.scaleInput.value = "1";
     this.scaleInput.min = "0.1";
     this.scaleInput.step = "0.1";
-    this.scaleInput.style.margin = "0 10px";
+    this.scaleInput.style.width = "80px";
 
     // Кнопки Accept/Cancel
-    const buttonContainer = this.contentEl.createDiv({ cls: "image-crop-buttons" }) as HTMLDivElement;
+    const buttonContainer = this.contentEl.createDiv({ 
+      cls: "image-crop-buttons" 
+    }) as HTMLDivElement;
     buttonContainer.style.display = "flex";
     buttonContainer.style.gap = "10px";
+    buttonContainer.style.justifyContent = "flex-end";
 
-    const acceptBtn = buttonContainer.createEl("button", { text: "Accept" }) as HTMLButtonElement;
-    const cancelBtn = buttonContainer.createEl("button", { text: "Cancel" }) as HTMLButtonElement;
+    const acceptBtn = buttonContainer.createEl("button", { 
+      text: "Accept" 
+    }) as HTMLButtonElement;
+    
+    const cancelBtn = buttonContainer.createEl("button", { 
+      text: "Cancel" 
+    }) as HTMLButtonElement;
 
     acceptBtn.onclick = () => {
       const scale = parseFloat(this.scaleInput.value) || 1;
