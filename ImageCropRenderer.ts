@@ -62,9 +62,14 @@ export function registerImageCropRenderer(plugin: Plugin) {
     embed.appendChild(clone);
     embed.setAttribute('data-cropper-processed', 'true');
 
-    // Add hover preview functionality
-    embed.addEventListener('mouseenter', () => {
-      const preview = document.createElement('div');
+    // Add hover preview functionality with improved cleanup
+    let preview: HTMLDivElement | null = null;
+    let cleanupListener: (() => void) | null = null;
+
+    const createPreview = () => {
+      if (preview) return;
+      
+      preview = document.createElement('div');
       Object.assign(preview.style, {
         position: 'fixed',
         top: '10px',
@@ -86,12 +91,42 @@ export function registerImageCropRenderer(plugin: Plugin) {
       preview.appendChild(full);
       document.body.appendChild(preview);
 
-      const removePreview = () => {
-        preview.remove();
-        embed.removeEventListener('mouseleave', removePreview);
+      // Global mouse move handler to track cursor position
+      const globalMouseHandler = (e: MouseEvent) => {
+        if (!preview) return;
+        
+        const hoveredElement = document.elementFromPoint(e.clientX, e.clientY);
+        const shouldPersist = hoveredElement === preview || 
+                             hoveredElement === embed || 
+                             embed.contains(hoveredElement);
+        
+        if (!shouldPersist) {
+          removePreview();
+        }
       };
+
+      document.addEventListener('mousemove', globalMouseHandler);
       
-      embed.addEventListener('mouseleave', removePreview);
+      cleanupListener = () => {
+        document.removeEventListener('mousemove', globalMouseHandler);
+      };
+    };
+
+    const removePreview = () => {
+      if (preview && preview.isConnected) {
+        document.body.removeChild(preview);
+      }
+      preview = null;
+      
+      if (cleanupListener) {
+        cleanupListener();
+        cleanupListener = null;
+      }
+    };
+
+    embed.addEventListener('mouseenter', createPreview);
+    embed.addEventListener('mouseleave', () => {
+      // Don't remove immediately - let global handler decide
     });
   }
 

@@ -5,5 +5,5 @@
   "author": "Vitalij Suslov",
   "description": "Crop images in-place and render cropped views inside Obsidian using a simple alias pattern.",
   "main": "main.js",
-  "minAppVersion": "0.15.0"
+  "minAppVersion": "1.8.10"
 }

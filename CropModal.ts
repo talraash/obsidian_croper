@@ -196,6 +196,9 @@ export class CropModal extends Modal {
       let crop: CropData = { x: 0, y: 0, width: 100, height: 100, scale: 1 };
       let drawing = false;
       let startX = 0, startY = 0;
+      let isPanning = false;
+      let startPanX = 0, startPanY = 0;
+      let startScrollLeft = 0, startScrollTop = 0;
 
       // Function to convert canvas coordinates to original image coordinates
       const toOriginalCoords = (x: number, y: number) => {
@@ -209,6 +212,20 @@ export class CropModal extends Modal {
           const rect = canvas.getBoundingClientRect();
           const x = e.clientX - rect.left;
           const y = e.clientY - rect.top;
+          
+          // Right button (2) or middle button (1) for panning
+          if (e.button === 2 || e.button === 1) {
+              e.preventDefault();
+              isPanning = true;
+              startPanX = e.clientX;
+              startPanY = e.clientY;
+              startScrollLeft = canvasContainer.scrollLeft;
+              startScrollTop = canvasContainer.scrollTop;
+              canvas.style.cursor = 'grabbing';
+              return;
+          }
+          
+          // Left button: start selection
           const origCoords = toOriginalCoords(x, y);
           
           startX = origCoords.x;
@@ -217,6 +234,14 @@ export class CropModal extends Modal {
       };
       
       canvas.onmousemove = (e: MouseEvent) => {
+          if (isPanning) {
+              const dx = e.clientX - startPanX;
+              const dy = e.clientY - startPanY;
+              canvasContainer.scrollLeft = startScrollLeft - dx;
+              canvasContainer.scrollTop = startScrollTop - dy;
+              return;
+          }
+          
           if (!drawing) return;
           
           const rect = canvas.getBoundingClientRect();
@@ -255,12 +280,25 @@ export class CropModal extends Modal {
           );
       };
       
-      canvas.onmouseup = () => { 
+      canvas.onmouseup = (e: MouseEvent) => { 
           drawing = false; 
+          if (isPanning) {
+              isPanning = false;
+              canvas.style.cursor = '';
+          }
       };
       
-      canvas.onmouseleave = () => { 
+      canvas.onmouseleave = (e: MouseEvent) => { 
           drawing = false; 
+          if (isPanning) {
+              isPanning = false;
+              canvas.style.cursor = '';
+          }
+      };
+      
+      // Block context menu
+      canvas.oncontextmenu = (e) => {
+          e.preventDefault();
       };
 
       // Zoom controls
