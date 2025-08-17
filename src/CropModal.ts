@@ -1,4 +1,5 @@
 import { App, Modal, TFile, Notice, Vault, MarkdownView, Plugin } from "obsidian";
+import { ImageCropPluginInterface } from "./types";
 
 interface CropData {
   x: number;
@@ -14,7 +15,7 @@ export class CropModal extends Modal {
   private zoomLevel: number = 1.0;
 
   constructor(
-    private plugin: Plugin,
+    private plugin: ImageCropPluginInterface,
     app: App,
     private file: TFile,
     private view: MarkdownView,

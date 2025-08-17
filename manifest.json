@@ -1,7 +1,7 @@
 {
-  "id": "obsidian-image-croper",
-  "name": "Image Crop",
-  "version": "0.0.3",
+  "id": "image-croper",
+  "name": "Image Croper",
+  "version": "0.1.0",
   "author": "Vitalij Suslov",
   "description": "Crop images in-place and render cropped views inside Obsidian using a simple alias pattern.",
   "main": "main.js",

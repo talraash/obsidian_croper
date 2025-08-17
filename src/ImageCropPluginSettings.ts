@@ -1,18 +1,20 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
-import type ImageCropPlugin from "./main";
+import { ImageCropPluginInterface } from "./types";
 
 export interface ImageCropPluginSettings {
   defaultScale: number;
+  showPreviewOnHover: boolean;
 }
 
 export const DEFAULT_SETTINGS: ImageCropPluginSettings = {
   defaultScale: 600,
+  showPreviewOnHover: false,
 };
 
 export class ImageCropSettingTab extends PluginSettingTab {
-  plugin: ImageCropPlugin;
+  plugin: ImageCropPluginInterface;
 
-  constructor(app: App, plugin: ImageCropPlugin) {
+  constructor(app: App, plugin: ImageCropPluginInterface) {
     super(app, plugin);
     this.plugin = plugin;
   }
@@ -36,6 +38,18 @@ export class ImageCropSettingTab extends PluginSettingTab {
               this.plugin.settings.defaultScale = parsed;
               await this.plugin.saveSettings();
             }
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Show preview on hover")
+      .setDesc("Show original image when hovering over cropped image")
+      .addToggle(toggle => 
+        toggle
+          .setValue(this.plugin.settings.showPreviewOnHover)
+          .onChange(async (value) => {
+            this.plugin.settings.showPreviewOnHover = value;
+            await this.plugin.saveSettings();
           })
       );
   }
