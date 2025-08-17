@@ -3,8 +3,7 @@
   "name": "Image Croper",
   "version": "0.1.0",
   "author": "Vitalij Suslov",
-  "description": "Crop images in-place and render cropped views inside Obsidian using a simple alias pattern.",
-  "main": "main.js",
+  "description": "Crop images in-place and render cropped views inside you note using a simple alias pattern.",
   "minAppVersion": "1.8.10",
   "isDesktopOnly": true
 }
