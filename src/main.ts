@@ -3,6 +3,7 @@ import { CropModal } from "./CropModal";
 import { registerImageCropRenderer } from "./ImageCropRenderer";
 import { ImageCropPluginSettings, DEFAULT_SETTINGS, ImageCropSettingTab } from "./ImageCropPluginSettings";
 import { ImageCropPluginInterface } from "./types";
+import "../styles.css";
 
 export default class ImageCropPlugin extends Plugin implements ImageCropPluginInterface {
   settings!: ImageCropPluginSettings;
@@ -17,10 +18,16 @@ export default class ImageCropPlugin extends Plugin implements ImageCropPluginIn
         new Notice("No active markdown view");
         return;
       }
+      
+      if (!(view.file instanceof TFile)) {
+        new Notice("Current view does not have a valid file");
+        return;
+      }
+      
       new CropModal(
         this,
         this.app,
-        view.file as TFile,
+        view.file,
         view,
         this.app.vault
       ).open();

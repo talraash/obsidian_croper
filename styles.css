@@ -1,0 +1,112 @@
+.image-crop-search {
+    width: 100% !important;
+    margin-bottom: 10px !important;
+}
+
+.image-crop-container {
+    display: flex !important;
+    gap: 20px !important;
+}
+
+.image-crop-list {
+    flex: 1 !important;
+    max-height: 400px !important;
+    overflow-y: auto !important;
+}
+
+.image-crop-preview {
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+}
+
+.image-crop-preview-img {
+    max-width: 100% !important;
+    max-height: 300px !important;
+}
+
+.image-crop-no-results {
+    padding: 10px !important;
+    text-align: center !important;
+    color: var(--text-muted) !important; 
+}
+
+.image-crop-item {
+    cursor: pointer !important;
+    padding: 5px !important;
+    border-bottom: 1px solid var(--background-modifier-border) !important;
+}
+
+.image-crop-item:hover {
+    background-color: var(--background-modifier-hover) !important;
+}
+
+.image-crop-buttons {
+    margin-top: 15px !important;
+    display: flex !important;
+    gap: 10px !important;
+}
+
+.image-crop-canvas-container {
+    overflow: auto !important;
+    max-height: 60vh !important;
+    border: 1px solid var(--background-modifier-border) !important;
+    border-radius: 4px !important;
+    padding: 10px !important;
+    background-color: var(--background-primary) !important;
+}
+
+.image-crop-zoom-controls {
+    margin: 15px 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+}
+
+.image-crop-scale {
+    margin: 15px 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+}
+
+.image-crop-buttons-end {
+    justify-content: flex-end !important;
+}
+
+
+.image-crop-embed {
+    overflow: hidden !important;
+    position: relative !important;
+    display: inline-block !important;
+    max-width: 100% !important;
+}
+
+.image-crop-clone {
+    position: absolute !important;
+    max-width: none !important;
+    max-height: none !important;
+}
+
+.image-crop-preview-box {
+    position: fixed !important;
+    top: 10px !important;
+    right: 10px !important;
+    z-index: 9999 !important;
+    border: 1px solid var(--background-modifier-border) !important;
+    background: var(--background-primary) !important;
+    padding: 5px !important;
+    border-radius: 4px !important;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2) !important;
+}
+
+.image-crop-preview-img-full {
+    max-width: min(80vw, 400px) !important;
+    max-height: 60vh !important;
+    display: block !important;
+}
+
+.image-crop-scale-input {
+    width: 80px !important;
+}
